@@ -1,70 +1,193 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- GUI Library Setup
+-- State Variables
+local menuOpen = true
+local slidingOut = false
+local slidingIn = false
+
+-- Main GUI Container
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MANJII_GUI"
+ScreenGui.Name = "ManjiiOfficialUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = game:GetService("CoreGui")
 
+-- Overlay Watermark
 local Overlay = Instance.new("TextLabel")
-Overlay.Name = "Watermark"
+Overlay.Name = "Overlay"
 Overlay.Size = UDim2.new(0, 150, 0, 30)
 Overlay.Position = UDim2.new(0, 10, 0, 10)
-Overlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Overlay.BackgroundTransparency = 0.3
-Overlay.TextColor3 = Color3.fromRGB(255, 255, 255)
+Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Overlay.BackgroundTransparency = 0.5
 Overlay.Text = "MANJII OFFICIAL"
-Overlay.Font = Enum.Font.GothamBold
+Overlay.TextColor3 = Color3.fromRGB(0, 255, 255)
 Overlay.TextSize = 12
+Overlay.Font = Enum.Font.GothamBold
 Overlay.TextStrokeTransparency = 0
-Overlay.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+Overlay.TextStrokeColor3 = Color3.fromRGB(0, 100, 255)
+Overlay.BorderSizePixel = 0
+local OverlayCorner = Instance.new("UICorner")
+OverlayCorner.CornerRadius = UDim.new(0, 8)
+OverlayCorner.Parent = Overlay
 Overlay.Parent = ScreenGui
-Instance.new("UICorner", Overlay).CornerRadius = UDim.new(0, 4)
 
--- Draggable Watermark & Color Change
-local dragging, dragInput, dragStart, startPos
+-- Main Menu Frame
+local MenuFrame = Instance.new("Frame")
+MenuFrame.Name = "MenuFrame"
+MenuFrame.Size = UDim2.new(0, 400, 0, 500)
+MenuFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+MenuFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MenuFrame.BackgroundTransparency = 0.15
+MenuFrame.BorderSizePixel = 0
+MenuFrame.Parent = ScreenGui
 
-Overlay.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Overlay.Position
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-        -- Right click to cycle text color
-        local colors = {
-            Color3.fromRGB(255, 0, 0),
-            Color3.fromRGB(0, 255, 0),
-            Color3.fromRGB(0, 120, 255),
-            Color3.fromRGB(255, 255, 0),
-            Color3.fromRGB(255, 0, 255),
-            Color3.fromRGB(0, 255, 255),
-            Color3.fromRGB(255, 255, 255)
-        }
-        local current = Overlay.TextColor3
-        for i, c in ipairs(colors) do
-            if c == current then
-                Overlay.TextColor3 = colors[i + 1] or colors[1]
-                break
-            end
-        end
+local MenuGradient = Instance.new("UIGradient")
+MenuGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 40, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 20, 80))
+}
+MenuGradient.Parent = MenuFrame
+
+local MenuCorner = Instance.new("UICorner")
+MenuCorner.CornerRadius = UDim.new(0, 12)
+MenuCorner.Parent = MenuFrame
+
+local MenuStroke = Instance.new("UIStroke")
+MenuStroke.Color = Color3.fromRGB(0, 200, 255)
+MenuStroke.Thickness = 1
+MenuStroke.Transparency = 0.5
+MenuStroke.Parent = MenuFrame
+
+-- Toggle Button
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
+ToggleBtn.Position = UDim2.new(0, 165, 0, 10)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ToggleBtn.BackgroundTransparency = 0.6
+ToggleBtn.Text = "«"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 255)
+ToggleBtn.TextSize = 18
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Parent = ScreenGui
+local ToggleBtnCorner = Instance.new("UICorner")
+ToggleBtnCorner.CornerRadius = UDim.new(1, 0)
+ToggleBtnCorner.Parent = ToggleBtn
+
+-- Scrolling Frame for Buttons
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -60)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 50)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 255)
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollFrame.Parent = MenuFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 6)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = ScrollFrame
+
+-- Button Creation Function
+local featureCount = 0
+local function createFeatureButton(text, callback)
+    featureCount = featureCount + 1
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 35)
+    Btn.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    Btn.BackgroundTransparency = 0.85
+    Btn.Text = "   [OFF] " .. text
+    Btn.TextColor3 = Color3.fromRGB(200, 255, 255)
+    Btn.TextSize = 13
+    Btn.Font = Enum.Font.Gotham
+    Btn.TextXAlignment = Enum.TextXAlignment.Left
+    Btn.BorderSizePixel = 0
+    Btn.LayoutOrder = featureCount
+    Btn.Parent = ScrollFrame
+
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 8)
+    BtnCorner.Parent = Btn
+
+    local BtnGradient = Instance.new("UIGradient")
+    BtnGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 100, 255))
+    }
+    BtnGradient.Parent = Btn
+
+    local state = false
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        Btn.Text = "   " .. (state and "[ON] " or "[OFF] ") .. text
+        Btn.BackgroundTransparency = state and 0.7 or 0.85
+        callback(state)
+    end)
+    
+    return Btn
+end
+
+-- Slide In/Out Logic
+local function slideOut()
+    if slidingOut or slidingIn then return end
+    slidingOut = true
+    local tween = TweenService:Create(MenuFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, 0.5, -250)})
+    tween:Play()
+    tween.Completed:Connect(function()
+        slidingOut = false
+        menuOpen = false
+        MenuFrame.Visible = false
+    end)
+end
+
+local function slideIn()
+    if slidingOut or slidingIn then return end
+    MenuFrame.Visible = true
+    menuOpen = true
+    slidingIn = true
+    MenuFrame.Position = UDim2.new(1.5, 0, 0.5, -250)
+    local tween = TweenService:Create(MenuFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -200, 0.5, -250)})
+    tween:Play()
+    tween.Completed:Connect(function()
+        slidingIn = false
+    end)
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    if menuOpen then
+        slideOut()
+        ToggleBtn.Text = "»"
+    else
+        slideIn()
+        ToggleBtn.Text = "«"
     end
 end)
 
-Overlay.InputChanged:Connect(function(input)
+-- Make Menu Draggable
+local dragging, dragInput, dragStart, startPos
+
+MenuFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MenuFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MenuFrame.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
@@ -73,245 +196,270 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        Overlay.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        MenuFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
--- Core Variables
-local EspEnabled = true
-local SprintEnabled = true
-local AutoMission = true
-local AutoSlash = false
-local AutoKiller = false
-local AutoPalette = false
-
--- ESP Module
-local function CreateESP(player)
-    if player == LocalPlayer then return end
-    local char = player.Character
-    if not char then return end
-    
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "MANJII_ESP"
-    highlight.FillTransparency = 0.8
-    highlight.OutlineTransparency = 0
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.Parent = char
-    
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "MANJII_BILLBOARD"
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = char:FindFirstChild("Head") or char
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,0,1,0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0.5
-    label.Text = player.Name
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.Parent = billboard
-end
-
-local function ClearESP(player)
-    if player.Character then
-        local h = player.Character:FindFirstChild("MANJII_ESP")
-        if h then h:Destroy() end
-        local head = player.Character:FindFirstChild("Head")
-        if head then
-            local bb = head:FindFirstChild("MANJII_BILLBOARD")
-            if bb then bb:Destroy() end
+-- ESP Functionality
+local espEnabled = false
+local function toggleESP(state)
+    espEnabled = state
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("ManjiiESP")
+            if state then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "ManjiiESP"
+                    highlight.FillColor = Color3.fromRGB(0, 255, 255)
+                    highlight.OutlineColor = Color3.fromRGB(0, 100, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = player.Character
+                end
+            else
+                if highlight then highlight:Destroy() end
+            end
         end
     end
 end
 
--- Initialize ESP
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        player.CharacterAdded:Connect(function()
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function(c)
+        if espEnabled then
             task.wait(1)
-            if EspEnabled then CreateESP(player) end
-        end)
-        if player.Character then task.spawn(function() task.wait(0.5) if EspEnabled then CreateESP(player) end end) end
-    end
-end
-
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        task.wait(1)
-        if EspEnabled then CreateESP(player) end
+            toggleESP(true)
+        end
     end)
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-    ClearESP(player)
+-- Auto Sprint
+local sprintConn
+createFeatureButton("Sprint Boost", function(state)
+    if state then
+        sprintConn = RunService.RenderStepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum.WalkSpeed = 25 end
+            end
+        end)
+    else
+        if sprintConn then sprintConn:Disconnect() end
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+    end
 end)
 
--- Infinite Sprint
-RunService:BindToRenderStep("MANJII_SPRINT", 1, function()
-    if SprintEnabled and LocalPlayer.Character then
-        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+-- Infinite Jump
+local jumpConn
+createFeatureButton("Infinite Jump", function(state)
+    if state then
+        jumpConn = UserInputService.JumpRequest:Connect(function()
+            if LocalPlayer.Character then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid").ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        if jumpConn then jumpConn:Disconnect() end
+    end
+end)
+
+-- Full Invisible
+createFeatureButton("Absolute Invisibility", function(state)
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = state and 1 or 0
+                if part:FindFirstChildOfClass("Decal") then
+                    part.Decal.Transparency = state and 1 or 0
+                end
+            end
+        end
+        local face = char:FindFirstChild("Head") and char.Head:FindFirstChildOfClass("Decal")
+        if face then face.Transparency = state and 1 or 0 end
+    end
+end)
+
+-- Killer Immunity (Godmode)
+local immConn
+createFeatureButton("Killer Immunity (Godmode)", function(state)
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then
-            hum.WalkSpeed = 25
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                hum.WalkSpeed = 50
+            if state then
+                immConn = hum.HealthChanged:Connect(function(newHealth)
+                    if newHealth < hum.MaxHealth then
+                        hum.Health = hum.MaxHealth
+                    end
+                end)
+            else
+                if immConn then immConn:Disconnect() end
             end
         end
     end
 end)
 
--- Auto Mission / Auto Interact (Completes many missions by interacting with nearby map props/NPCs)
-task.spawn(function()
-    while task.wait(1) do
-        if AutoMission and LocalPlayer.Character then
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if (obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")) and obj.Enabled then
+-- Kill Aura / Auto Slash
+local killAuraConn
+createFeatureButton("Auto Slash (Kill Aura)", function(state)
+    if state then
+        killAuraConn = RunService.RenderStepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local tool = char:FindFirstChildOfClass("Tool")
+                if root and tool then
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                            local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                            if dist < 20 then
+                                tool:Activate()
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        if killAuraConn then killAuraConn:Disconnect() end
+    end
+end)
+
+-- Auto Killer (Teleport to nearest survivor and slash)
+local autoKillerConn
+createFeatureButton("Auto Killer (TP & Slash)", function(state)
+    if state then
+        autoKillerConn = RunService.RenderStepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local tool = char:FindFirstChildOfClass("Tool")
+                if root and tool then
+                    local nearest, minDist = nil, math.huge
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                            local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                            if dist < minDist then
+                                minDist = dist
+                                nearest = p
+                            end
+                        end
+                    end
+                    if nearest and minDist > 5 then
+                        root.CFrame = nearest.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    elseif nearest and minDist <= 5 then
+                        tool:Activate()
+                    end
+                end
+            end
+        end)
+    else
+        if autoKillerConn then autoKillerConn:Disconnect() end
+    end
+end)
+
+-- Auto Complete Missions
+createFeatureButton("Auto Complete Missions", function(state)
+    if state then
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") or (obj:IsA("ClickDetector")) then
+                if obj:IsA("ProximityPrompt") then
+                    fireproximityprompt(obj)
+                end
+            end
+        end
+    end
+end)
+
+-- Auto Palette (Interact with nearby interactive objects)
+local palletConn
+createFeatureButton("Auto Palette / Interact", function(state)
+    if state then
+        palletConn = RunService.RenderStepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") then
                         local part = obj.Parent
                         if part:IsA("BasePart") then
                             local dist = (root.Position - part.Position).Magnitude
-                            if dist <= 15 then
-                                if obj:IsA("ProximityPrompt") then
-                                    fireproximityprompt(obj)
-                                elseif obj:IsA("ClickDetector") then
-                                    fireclickdetector(obj)
-                                end
-                                task.wait(0.5)
+                            if dist < 15 then
+                                fireproximityprompt(obj)
                             end
                         end
                     end
+                end
+            end
+        end)
+    else
+        if palletConn then palletConn:Disconnect() end
+    end
+end)
+
+-- ESP Toggle
+createFeatureButton("Kill Auto ESP", function(state)
+    toggleESP(state)
+end)
+
+-- Low Gravity
+createFeatureButton("Low Gravity", function(state)
+    workspace.Gravity = state and 0.2 or 196.2
+end)
+
+-- No Clip
+local noclipConn
+createFeatureButton("No Clip", function(state)
+    if state then
+        noclipConn = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConn then noclipConn:Disconnect() end
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
                 end
             end
         end
     end
 end)
 
--- Auto Slash (Survivor)
-task.spawn(function()
-    while task.wait(0.1) do
-        if AutoSlash and LocalPlayer.Character then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hum and root then
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer and player.Character then
-                        local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-                        local targetHum = player.Character:FindFirstChildOfClass("Humanoid")
-                        if targetRoot and targetHum and targetHum.Health > 0 then
-                            local dist = (root.Position - targetRoot.Position).Magnitude
-                            if dist <= 8 then
-                                -- Simulate melee slash via tool or raw network event if available
-                                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                                if tool then
-                                    local slashEvent = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("SlashEvent")
-                                    if slashEvent then
-                                        slashEvent:FireServer(targetRoot.Position)
-                                    else
-                                        -- Fallback: Trigger tool activation
-                                        tool:Activate()
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
+-- Click Teleport
+local clickTpEnabled = false
+createFeatureButton("Click Teleport", function(state)
+    clickTpEnabled = state
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if clickTpEnabled and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mouse = LocalPlayer:GetMouse()
+        if mouse.Hit then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = mouse.Hit + Vector3.new(0, 3, 0)
             end
         end
     end
 end)
 
--- Auto Killer (Killer Role)
-task.spawn(function()
-    while task.wait(0.05) do
-        if AutoKiller and LocalPlayer.Character then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hum and root then
-                local closestPlayer, closestDist = nil, math.huge
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer and player.Character then
-                        local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-                        local targetHum = player.Character:FindFirstChildOfClass("Humanoid")
-                        if targetRoot and targetHum and targetHum.Health > 0 then
-                            local dist = (root.Position - targetRoot.Position).Magnitude
-                            if dist < closestDist then
-                                closestDist = dist
-                                closestPlayer = {player = player, root = targetRoot}
-                            end
-                        end
-                    end
-                end
-                
-                if closestPlayer and closestDist <= 100 then
-                    -- Teleport to target to guarantee hit
-                    root.CFrame = closestPlayer.root.CFrame * CFrame.new(0, 0, 3)
-                    
-                    -- Attempt to fire killer attack events
-                    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                    if tool then
-                        tool:Activate()
-                        for _, rem in ipairs(tool:GetDescendants()) do
-                            if rem:IsA("RemoteEvent") then
-                                rem:FireServer(closestPlayer.root)
-                            end
-                        end
-                    else
-                        -- Fallback: Check character or backpack for attack remotes
-                        for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
-                            if rem:IsA("RemoteEvent") and (rem.Name:lower():find("attack") or rem.Name:lower():find("kill") or rem.Name:lower():find("slash")) then
-                                rem:FireServer(closestPlayer.root)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- Auto Palette (Grabbing/Using palettes or items automatically)
-task.spawn(function()
-    while task.wait(1) do
-        if AutoPalette and LocalPlayer.Character then
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") and obj.Enabled then
-                        local part = obj.Parent
-                        if part:IsA("BasePart") then
-                            local promptText = obj.Text or ""
-                            -- Generic trigger for palettes, boards, items, generators, etc.
-                            if promptText:lower():find("palette") or promptText:lower():find("board") or promptText:lower():find("item") or promptText:lower():find("grab") or promptText:lower():find("use") then
-                                local dist = (root.Position - part.Position).Magnitude
-                                if dist <= 20 then
-                                    fireproximityprompt(obj)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- Keybind Handler
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.E then
-        AutoSlash = not AutoSlash
-    elseif input.KeyCode == Enum.KeyCode.K then
-        AutoKiller = not AutoKiller
-    elseif input.KeyCode == Enum.KeyCode.P then
-        AutoPalette = not AutoPalette
-    elseif input.KeyCode == Enum.KeyCode.M then
-        AutoMission = not AutoMission
-    elseif input.KeyCode == Enum.KeyCode.H then
-        SprintEnabled = not SprintEnabled
-    end
+-- Resize Scrolling Frame Canvas
+task.defer(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    end)
 end)
